@@ -1,7 +1,10 @@
+from io import StringIO
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, List, Tuple
+import pandas as pd
 
 import psutil
 from PyQt5 import QtGui, QtWidgets, QtCore
@@ -11,6 +14,8 @@ ADAMS_ICON = Path('icons/adams.ico')
 SOLVER_IMAGE = 'solver.exe'
 AVIEW_IMAGE = 'aview.exe'
 
+STARTUPINFO = subprocess.STARTUPINFO()
+STARTUPINFO.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
 class Menu(QtWidgets.QMenu):
     
@@ -41,6 +46,11 @@ class Menu(QtWidgets.QMenu):
             
             self.addMenu(menu)
 
+        # Add a disabled action if there are no processes
+        if len(proc_table) == 0:
+            noneAction = self.addAction('None')
+            noneAction.setEnabled(False)
+
 class SolverMenu(Menu):
     def get_proc_table(self):
         return get_solver_table()
@@ -68,17 +78,25 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         
         menu.addSeparator()
 
-        menu.addMenu(SolverMenu('solver Processes', parent=parent))
-        menu.addMenu(AviewMenu('aview Processes', parent=parent))
+        menu.addMenu(SolverMenu('solver processes', parent=parent))
+        menu.addMenu(AviewMenu('aview processes', parent=parent))
 
         self.setContextMenu(menu)
 
-
 def get_solver_table()->List[Tuple[psutil.Process, int, str, Path]]:
     
+    with subprocess.Popen(f'tasklist /FO csv /FI "imagename eq {SOLVER_IMAGE}"', 
+                          startupinfo=STARTUPINFO, 
+                          stdout=subprocess.PIPE, text=True) as proc:
+        out, err = proc.communicate()
+
+    if err is not None:
+        raise RuntimeError(err)
+    
     table = []
-    for proc in (p for p in psutil.process_iter() if p.name() == SOLVER_IMAGE):
-        pid = proc.pid
+    for _, row in pd.read_csv(StringIO(out)).iterrows():
+        proc = psutil.Process(int(row['PID']))
+        pid = int(row['PID'])
         res_file = next(Path(p.path) for p in proc.open_files() if Path(p.path).suffix == '.res')
         working_dir = res_file.parent.absolute()
         ans_name = res_file.stem
@@ -88,10 +106,19 @@ def get_solver_table()->List[Tuple[psutil.Process, int, str, Path]]:
     return sorted(table, key=lambda x: x[2], reverse=True)
 
 def get_aview_table()->List[Tuple[psutil.Process, int, str, Path]]:
+
+    with subprocess.Popen(f'tasklist /FO csv /FI "imagename eq {AVIEW_IMAGE}"', 
+                          startupinfo=STARTUPINFO, 
+                          stdout=subprocess.PIPE, text=True) as proc:
+        out, err = proc.communicate()
+
+    if err is not None:
+        raise RuntimeError(err)
     
     table = []
-    for proc in (p for p in psutil.process_iter() if p.name() == AVIEW_IMAGE):
-        pid = proc.pid
+    for _, row in pd.read_csv(StringIO(out)).iterrows():
+        proc = psutil.Process(int(row['PID']))
+        pid = int(row['PID'])
         working_dir = proc.cwd()
 
         table.append([proc, pid, Path(working_dir).as_posix(), working_dir])
