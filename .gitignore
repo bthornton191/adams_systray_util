@@ -1,3 +1,7 @@
-log.txt
 **/__pycache__
-.vscode/settings.json
+/.vscode
+/adams_systray_util.log
+/env
+/dist
+/build
+/docs/images/**.mkv
