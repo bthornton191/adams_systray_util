@@ -55,14 +55,14 @@ class Menu(QtWidgets.QMenu):
 
         self.clear()
 
-        for proc, pid, name, path in proc_table:
+        for _, pid, name, path in proc_table:
             menu = QtWidgets.QMenu(f'{name} [{pid}]', self)
 
             open_dir = menu.addAction('Go to')
             open_dir.triggered.connect(lambda: goto(Path(path)))
 
             kill = menu.addAction('Kill')
-            kill.triggered.connect(lambda: terminate_process(proc))
+            kill.triggered.connect(lambda _, pid=pid: terminate_process(pid))
 
             self.addMenu(menu)
 
@@ -137,8 +137,9 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         self.setToolTip('/'.join(tooltip_lines))
 
 
-def terminate_process(proc: psutil.Process):
+def terminate_process(pid: int):
     try:
+        proc = psutil.Process(pid)
         proc.terminate()
     except psutil.NoSuchProcess:
         pass
