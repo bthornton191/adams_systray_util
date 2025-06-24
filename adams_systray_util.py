@@ -117,6 +117,25 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
 
         self.setContextMenu(menu)
 
+        self.tooltip_timer = QtCore.QTimer(self)
+        self.tooltip_timer.timeout.connect(self.update_tooltip)
+        self.tooltip_timer.start(5000)  # Update every 5 seconds
+
+    def update_tooltip(self):
+        solver_table = get_solver_table()
+        aview_table = get_aview_table()
+
+        tooltip_lines = []
+        n_solver = len(solver_table)
+        if n_solver > 0:
+            tooltip_lines.append(f'{n_solver} solver')
+
+        n_aview = len(aview_table)
+        if n_aview > 0:
+            tooltip_lines.append(f'{n_aview} aview')
+
+        self.setToolTip('/'.join(tooltip_lines))
+
 
 def terminate_process(proc: psutil.Process):
     try:

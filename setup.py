@@ -28,7 +28,7 @@ executables = [
 ]
 
 setup(name='adams_systray_util',
-      version='1.0',
+      version='1.1',
       description='A system tray utility for the Hexagon Adams user.',
       options={'build_exe': build_options,
                'bdist_msi': bdist_msi_options},
