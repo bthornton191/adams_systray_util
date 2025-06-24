@@ -10,3 +10,16 @@ This is a simple system tray utility for [Adams](https://hexagon.com/products/pr
 - Kill a running Adams View or Solver process
 - Kill all running Adams View or Solver processes
 
+## Installation
+
+### Windows
+
+Download the [latest windows installer](https://github.com/bthornton191/adams_systray_util/releases/latest/download/adams_systray_util-1.0-win64.msi).
+
+### MacOS ❌
+
+Not yet available.
+
+### Linux ❌
+
+Not yet available.
