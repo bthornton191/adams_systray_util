@@ -1,5 +1,4 @@
 import logging
-import os
 import platform
 import subprocess
 import sys
@@ -12,7 +11,15 @@ import pandas as pd
 import psutil
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-ADAMS_ICON = Path('icons/adams.ico')
+# Resolve resource paths relative to this file (or the frozen executable) so the
+# app works regardless of the current working directory, e.g. when launched by a
+# scheduled task without a "Start in" directory set.
+if getattr(sys, 'frozen', False):
+    SCRIPT_DIR = Path(sys.executable).resolve().parent
+else:
+    SCRIPT_DIR = Path(__file__).resolve().parent
+
+ADAMS_ICON = SCRIPT_DIR / 'icons' / 'adams.ico'
 
 SOLVER_IMAGE = 'solver.exe'
 AVIEW_IMAGE = 'aview.exe'
@@ -22,7 +29,7 @@ STARTUPINFO.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
 
 def setup_logging():
-    handler = WatchedFileHandler(f'{Path(__file__).stem}.log')
+    handler = WatchedFileHandler(str(SCRIPT_DIR / f'{Path(__file__).stem}.log'))
     formatter = logging.Formatter('%(asctime)s:%(levelname)s:%(name)s:%(message)s', '%Y-%m-%d %H:%M:%S')
     handler.setFormatter(formatter)
     root = logging.getLogger()
@@ -96,12 +103,10 @@ class SystemTrayIcon(QtWidgets.QSystemTrayIcon):
         menu.addSeparator()
 
         # ------------------------------------------------------------------------------------------
-        # TODO: Implement Start with Windows feature
-        # ------------------------------------------------------------------------------------------
-        # startupAction = QtWidgets.QAction('Start with Windows', checkable=True)
-        # startupAction.triggered.connect(run_at_startup)
-        # menu.addAction(startupAction)
-        # menu.addSeparator()
+        # Start with Windows: create a Scheduled Task (Task Scheduler) with an "At log on" trigger.
+        # This is done manually / by IT rather than in-app, because registering a logon task
+        # requires elevation on managed machines. The task should run:
+        #   "<venv>\Scripts\pythonw.exe" "<...>\adams_systray_util.py"
         # ------------------------------------------------------------------------------------------
 
         killAllSolversAction = menu.addAction('Kill all solver.exe')
@@ -224,41 +229,6 @@ def kill_all_solver():
 
 def kill_all_aview():
     subprocess.Popen(f'taskkill /f /fi "imagename eq {AVIEW_IMAGE}"', startupinfo=STARTUPINFO)
-
-
-def run_at_startup(enabled: bool):
-    startup_path = Path(os.getenv('APPDATA')) / 'Microsoft/Windows/Start Menu/Programs/Startup'
-    shortcut_path = startup_path / 'adams_systray_util.lnk'
-
-    if enabled and shortcut_path.exists():
-        return
-
-    target_path = Path(sys.executable).absolute()
-
-    ps_cmds = ['$WshShell = New-Object -comObject WScript.Shell',
-               f'$Shortcut = $WshShell.CreateShortcut("{shortcut_path}")']
-
-    if 'python' in target_path.stem:
-        target_path = target_path.parent / 'pythonw.exe'
-
-        ps_cmds += [f'$Shortcut.Arguments = "{Path(__file__).absolute().resolve()}"']
-
-    ps_cmds += [f'$Shortcut.TargetPath = "{target_path}"',
-                '$Shortcut.Save()']
-
-    with subprocess.Popen(['powershell.exe',
-                           '; '.join(ps_cmds)],
-                          startupinfo=STARTUPINFO,
-                          stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE,
-                          text=True) as proc:
-        out, err = proc.communicate()
-
-    if err:
-        raise RuntimeError(err)
-
-    LOG.debug(out)
-    LOG.info('Created startup shortcut')
 
 
 def excepthook(exc_type, exc_value, exc_traceback):
